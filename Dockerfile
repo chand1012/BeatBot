@@ -2,7 +2,7 @@ FROM python:3.9-buster
 
 # Install dependencies
 # and clear apt cache
-RUN apt-get update && apt-get install -y python3-pip libffi-dev libnacl-dev python3-dev \
+RUN apt-get update && apt-get install -y ffmpeg python3-pip libffi-dev libnacl-dev python3-dev \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
