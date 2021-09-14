@@ -109,8 +109,8 @@ class Music(commands.Cog):
         elif ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
-bot = commands.Bot(command_prefix=COMMAND_PREFIX, description='Relatively simple music bot example')
-
+activity = nextcord.Activity(name='music.', type=nextcord.ActivityType.listening)
+bot = commands.Bot(command_prefix=COMMAND_PREFIX, description='Relatively simple music bot example', activity=activity)
 
 bot.add_cog(Music(bot))
 bot.run(DISCORD_TOKEN)
