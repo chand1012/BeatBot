@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+COMMAND_PREFIX = os.getenv("PREFIX")
 
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
@@ -108,7 +109,7 @@ class Music(commands.Cog):
         elif ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
-bot = commands.Bot(command_prefix="-", description='Relatively simple music bot example')
+bot = commands.Bot(command_prefix=COMMAND_PREFIX, description='Relatively simple music bot example')
 
 
 bot.add_cog(Music(bot))
