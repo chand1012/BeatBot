@@ -13,7 +13,7 @@ from simple_queue import Queue
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-COMMAND_PREFIX = os.getenv("PREFIX")
+COMMAND_PREFIX = os.getenv("PREFIX") or '-'
 
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
