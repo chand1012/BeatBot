@@ -84,7 +84,7 @@ class Music(commands.Cog):
         async with ctx.typing():
             self.queue.push(url)
             if not ctx.voice_client.is_playing():
-                self.bg_task = self.bot.loop.create_task(self.play_songs(ctx))
+                self.play_songs(ctx)
         
         await ctx.send(f'Added to queue!')
 
@@ -95,6 +95,7 @@ class Music(commands.Cog):
         if ctx.voice_client.is_playing():
             ctx.voice_client.stop()
             await ctx.send('Skipped!')
+            self.play_songs(ctx)
 
     @commands.command()
     async def volume(self, ctx, volume: int):
@@ -122,18 +123,27 @@ class Music(commands.Cog):
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
 
-    async def play_songs(self, ctx):
-        while not self.queue.isEmpty():
-            if ctx.voice_client.is_playing():
-                await asyncio.sleep(1)
-            url = self.queue.pop()
-            print(url)
-            if url is None:
-                break
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            print(f'[{player.title}] playing...')
-            ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
-            await ctx.send(f'Now playing: {url}')
+    def play_songs(self, ctx):
+        self.bg_task = self.bot.loop.create_task(self.play_songs_task(ctx))
+
+    async def play_songs_task(self, ctx):
+        if not self.queue.isEmpty():
+            try:
+                url = self.queue.pop()
+                print(url)
+                if ctx.voice_client.is_playing() or url is None:
+                    return
+                player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+                print(f'[{player.title}] playing...')
+                ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else self.play_songs(ctx))
+                await ctx.send(f'Now playing: {player.title}')
+            except Exception as e:
+                print(e)
+                await ctx.send(f'An error occured: {e}')
+        else:
+            print('Queue empty, stopping...')
+            await ctx.send('Queue empty, goodbye!')
+            await ctx.voice_client.disconnect()
         
 
 activity = nextcord.Activity(name='music.', type=nextcord.ActivityType.listening)
