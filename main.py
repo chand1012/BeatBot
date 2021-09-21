@@ -8,6 +8,8 @@ import youtube_dl
 from nextcord.ext import commands
 from dotenv import load_dotenv
 
+from simple_queue import Queue
+
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -45,6 +47,7 @@ class YTDLSource(nextcord.PCMVolumeTransformer):
 
         self.title = data.get('title')
         self.url = data.get('url')
+        self.duration = data.get('duration')
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
@@ -62,6 +65,8 @@ class YTDLSource(nextcord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.queue = Queue()
+        self.bg_task = None
 
     @commands.command()
     async def join(self, ctx, *, channel: nextcord.VoiceChannel):
@@ -77,10 +82,20 @@ class Music(commands.Cog):
         """Streams from a url (same as yt, but doesn't predownload)"""
 
         async with ctx.typing():
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+            self.queue.push(url)
+            if not ctx.voice_client.is_playing():
+                self.play_songs(ctx)
+        
+        await ctx.send(f'Added to queue!')
 
-        await ctx.send(f'Now playing: {player.title}')
+    @commands.command()
+    async def skip(self, ctx):
+        """Skips the current song"""
+
+        if ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+            await ctx.send('Skipped!')
+            self.play_songs(ctx)
 
     @commands.command()
     async def volume(self, ctx, volume: int):
@@ -96,6 +111,7 @@ class Music(commands.Cog):
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
 
+        self.queue.clear()
         await ctx.voice_client.disconnect()
 
     @play.before_invoke
@@ -106,8 +122,29 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
-        elif ctx.voice_client.is_playing():
-            ctx.voice_client.stop()
+
+    def play_songs(self, ctx):
+        self.bg_task = self.bot.loop.create_task(self.play_songs_task(ctx))
+
+    async def play_songs_task(self, ctx):
+        if not self.queue.isEmpty():
+            try:
+                url = self.queue.pop()
+                print(url)
+                if ctx.voice_client.is_playing() or url is None:
+                    return
+                player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+                print(f'[{player.title}] playing...')
+                ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else self.play_songs(ctx))
+                await ctx.send(f'Now playing: {player.title}')
+            except Exception as e:
+                print(e)
+                await ctx.send(f'An error occured: {e}')
+        else:
+            print('Queue empty, stopping...')
+            await ctx.send('Queue empty, goodbye!')
+            await ctx.voice_client.disconnect()
+        
 
 activity = nextcord.Activity(name='music.', type=nextcord.ActivityType.listening)
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, description='Relatively simple music bot example', activity=activity)
